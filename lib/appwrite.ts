@@ -1,4 +1,4 @@
-import { Account, Avatars, Client, Databases, ID } from 'react-native-appwrite';
+import { Account, Avatars, Client, Databases, ID, Query } from 'react-native-appwrite';
 export const appwriteConfig = {
   endpoint:'https://cloud.appwrite.io/v1',
   platform:'com.aora.jose',
@@ -55,5 +55,68 @@ export const signIn = async ({email,password}:any) => {
     const session = await account.createEmailPasswordSession(email,password);
   } catch (error) {
     console.log(error)
+  }
+}
+
+export const getCurrentUser = async () => {
+  try {
+    const currentAccount = await account.get();
+
+    if(!currentAccount)throw new Error('no current account');
+
+    const currentUser = await databases.listDocuments(appwriteConfig.databaseId,appwriteConfig.userCollectionId,[Query.equal('accountId',currentAccount.$id)])
+
+    if(!currentUser) throw new Error('no current user');
+
+    return currentUser.documents[0];
+
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const getAllPosts = async () => {
+  try {
+    const posts = await databases.listDocuments(appwriteConfig.databaseId,appwriteConfig.videoCollectionId)
+    return posts.documents
+  } catch (error) {
+    console.log(error)
+  }
+}
+export const getLatestPosts = async () => {
+  try {
+    const posts = await databases.listDocuments(appwriteConfig.databaseId,appwriteConfig.videoCollectionId,[Query.orderDesc('$createdAt',Query.limit(7))])
+    return posts.documents
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const searchPost = async (query:any) => {
+  try {
+    const posts = await databases.listDocuments(appwriteConfig.databaseId,appwriteConfig.videoCollectionId,[Query.search('title',query)])
+    return posts.documents
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const getUserPosts = async (userId:string) => {
+  try {
+    const posts = await databases.listDocuments(appwriteConfig.databaseId,appwriteConfig.videoCollectionId,[Query.search('creator',userId)])
+    return posts.documents
+  } catch (error:any) {
+    throw new Error(error);
+  }
+}
+
+
+export async function signOut() {
+  try {
+    const session = await account.deleteSession("current");
+
+    return session;
+  } catch (error:any) {
+    throw new Error(error);
   }
 }
