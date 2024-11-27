@@ -1,4 +1,4 @@
-import { Account, Avatars, Client, Databases, ID, Query } from 'react-native-appwrite';
+import { Account, Avatars, Client, Databases, ID, Query,Storage } from 'react-native-appwrite';
 export const appwriteConfig = {
   endpoint:'https://cloud.appwrite.io/v1',
   platform:'com.aora.jose',
@@ -23,6 +23,7 @@ client
 const account = new Account(client);
 const avatars = new Avatars(client);
 const databases = new Databases(client);
+const storage = new Storage(client)
 
 export const createUser = async ({email,password,username}: any)=> {
   try {
@@ -114,9 +115,70 @@ export const getUserPosts = async (userId:string) => {
 export async function signOut() {
   try {
     const session = await account.deleteSession("current");
-
     return session;
   } catch (error:any) {
     throw new Error(error);
   }
 }
+export const getFilePreview = async (fileId:any,type:any) => {
+  let fileUrl;
+  try {
+    if(type === 'image'){
+      fileUrl = storage.getFilePreview(appwriteConfig.storageId,fileId,2000,2000,'top',100);
+    }
+    else if(type === 'video'){
+      fileUrl = storage.getFileView(appwriteConfig.storageId,fileId);
+    }
+    else{
+      throw new Error('invalid file type')
+    }
+    if(!fileUrl)throw new Error('No File');
+    return fileUrl;
+  } catch (error:any) {
+    throw new Error(error)
+  }
+}
+export const uploadFile = async (file:any,type:any) => {
+  if(!file){
+    return;
+  }
+  
+  const asset = {
+    name: file.fileName,
+    type: file.mimeType,
+    size: file.fileSize,
+    uri: file.uri,
+  }
+  try {
+    const uploadedFile = await storage.createFile(appwriteConfig.storageId,ID.unique(),asset);
+    const fileUrl = await getFilePreview(uploadedFile.$id,type)
+  } catch (error:any) {
+    throw new Error(error)
+  }
+}
+
+export const createVideoPost = async (form:any) =>{
+  try {
+    const [thumbnailUrl, videoUrl] = await Promise.all([
+      uploadFile(form.thumbnail, "image"),
+      uploadFile(form.video, "video"),
+    ]);
+
+    const newPost = await databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.videoCollectionId,
+      ID.unique(),
+      {
+        title: form.title,
+        thumbnail: thumbnailUrl,
+        video: videoUrl,
+        prompt: form.prompt,
+        creator: form.userId,
+      }
+    );
+
+    return newPost;
+  } catch (error:any) {
+    throw new Error(error);
+  }
+  }
